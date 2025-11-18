@@ -1,4 +1,4 @@
-// index.js (Финальная версия - Webhook + Console.log)
+// index.js (ФІНАЛЬНА ВЕРСІЯ: Webhook + Console.log)
 
 require('dotenv').config();
 // Устанавливаем UTC, если не задан (важно для Cron)
@@ -7,14 +7,16 @@ process.env.TZ = process.env.TZ || 'UTC';
 const TelegramBot = require('node-telegram-bot-api');
 const express = require('express');
 const axios = require('axios');
-// FIX: Используем стандартные console.log/console.error вместо Pino
+
+// FIX: Використовуємо стандартні console.log/console.error замість Pino
 const console_log = console.log; 
 const console_error = console.error; 
+
 const mongoose = require('mongoose');
 const cron = require('node-cron');
-const Subscription = require('./models/subscription'); 
+const Subscription = require('./models/subscription'); // УВАГА: має бути в папці models/
 
-// --- 1. КОНФИГУРАЦИЯ ---
+// --- 1. КОНФІГУРАЦІЯ ---
 const token = process.env.BOT_TOKEN;
 const weatherApiKey = process.env.OPENWEATHER_API_KEY;
 const dbConnectionString = process.env.DB_CONNECTION_STRING;
@@ -24,21 +26,21 @@ const webhookPath = '/bot/' + token;
 // Хранилище для состояний пользователей в процессе подписки
 const userStates = {};
 
-// --- 2. ПОДКЛЮЧЕНИЕ К БД ---
+// --- 2. ПІДКЛЮЧЕННЯ ДО БД ---
 mongoose.connect(dbConnectionString)
   .then(() => {
-    console_log('MongoDB connection successful!'); 
+    console_log('MongoDB connection successful!'); // ВИКОРИСТОВУЄМО console_log
   })
   .catch((err) => {
-    console_error({ error: err.message }, 'MongoDB connection error!'); 
+    console_error({ error: err.message }, 'MongoDB connection error!'); // ВИКОРИСТОВУЄМО console_error
     process.exit(1); 
   });
 
-// --- 3. ФУНКЦИИ API (Погода) ---
+// --- 3. ФУНКЦІЇ API (Погода) ---
 async function getWeather(lat, lon) {
     if (!weatherApiKey) {
-        console_error("OPENWEATHER_API_KEY не установлен."); 
-        throw new Error('API Key не установлен.');
+        console_error("OPENWEATHER_API_KEY не встановлено."); // ВИКОРИСТОВУЄМО console_error
+        throw new Error('API Key не встановлено.');
     }
     const url = 'https://api.openweathermap.org/data/2.5/weather';
     const params = { lat, lon, appid: weatherApiKey, units: 'metric', lang: 'ua' };
@@ -60,13 +62,13 @@ ${description.charAt(0).toUpperCase() + description.slice(1)}
     return message.trim();
 }
 
-// --- 4. ИНИЦИАЛИЗАЦИЯ БОТА И СЕРВЕРА (WEBHOOK) ---
+// --- 4. ІНІЦІАЛІЗАЦІЯ БОТА ТА СЕРВЕРА (WEBHOOK) ---
 const bot = new TelegramBot(token); 
 const app = express();
 app.use(express.json());
 
 app.listen(port, () => {
-    console_log(`Express server is running on port ${port}.`); 
+    console_log(`Express server is running on port ${port}.`); // ВИКОРИСТОВУЄМО console_log
 });
 
 // Настраиваем Webhook для приема обновлений от Telegram
@@ -76,15 +78,15 @@ app.post(webhookPath, (req, res) => {
 });
 
 // --- 5. "БУДИЛЬНИК" (CRON JOB) ---
-console_log('Cron job scheduler started. Will check every minute.'); 
+console_log('Cron job scheduler started. Will check every minute.'); // ВИКОРИСТОВУЄМО console_log
 cron.schedule('* * * * *', async () => {
     const now = new Date();
     // Получаем время в формате HH:MM (UTC)
     const currentTimeUTC = now.toISOString().substring(11, 16); 
-    console_log(`Cron tick: ${currentTimeUTC} UTC. Checking...`); 
+    console_log(`Cron tick: ${currentTimeUTC} UTC. Checking...`); // ВИКОРИСТОВУЄМО console_log
 
     try {
-        // Ищем подписки, время которых совпадает с текущей минутой
+        // Ищем подписки
         const subs = await Subscription.find({
             notificationTime: currentTimeUTC,
             isActive: true
@@ -92,7 +94,7 @@ cron.schedule('* * * * *', async () => {
 
         if (subs.length === 0) return;
 
-        console_log(`Found ${subs.length} subscriptions. Sending...`); 
+        console_log(`Found ${subs.length} subscriptions. Sending...`); // ВИКОРИСТОВУЄМО console_log
 
         for (const sub of subs) {
             try {
@@ -100,16 +102,16 @@ cron.schedule('* * * * *', async () => {
                 const message = formatWeatherMessage(weatherData);
                 await bot.sendMessage(sub.chatId, "🌤️ Ваш щоденний прогноз погоди:\n" + message, { parse_mode: 'Markdown' });
             } catch (err) {
-                console_error({ chatId: sub.chatId, error: err.message }, "Failed to send scheduled weather."); 
+                console_error({ chatId: sub.chatId, error: err.message }, "Failed to send scheduled weather."); // ВИКОРИСТОВУЄМО console_error
                 await bot.sendMessage(sub.chatId, "Не вдалося отримати ваш прогноз погоди. Можливо, ви відкликали дозвіл на геолокацію?");
             }
         }
     } catch (dbError) {
-        console_error({ error: dbError.message }, "Cron: Database query failed."); 
+        console_error({ error: dbError.message }, "Cron: Database query failed."); // ВИКОРИСТОВУЄМО console_error
     }
 });
 
-// --- 6. ОБРАБОТЧИКИ КОМАНД БОТА ---
+// --- 6. ОБРОБНИКИ КОМАНД БОТА (Логіка без змін) ---
 
 // /start
 bot.onText(/\/start/, (msg) => {
@@ -130,14 +132,14 @@ bot.onText(/\/unsubscribe/, async (msg) => {
     try {
         const deleted = await Subscription.findOneAndDelete({ chatId: chatId });
         if (deleted) {
-            console_log({ chatId }, "User unsubscribed."); 
+            console_log({ chatId }, "User unsubscribed."); // ВИКОРИСТОВУЄМО console_log
             bot.sendMessage(chatId, "Ви успішно відписалися від сповіщень. 👋");
         } else {
             bot.sendMessage(chatId, "Ви ще не були підписані.");
         }
         delete userStates[chatId]; 
     } catch (err) {
-        console_error({ chatId, error: err.message }, "Unsubscribe failed."); 
+        console_error({ chatId, error: err.message }, "Unsubscribe failed."); // ВИКОРИСТОВУЄМО console_error
         bot.sendMessage(chatId, "Не вдалося скасувати підписку. Спробуйте ще раз.");
     }
 });
@@ -162,7 +164,7 @@ bot.onText(/\/list/, async (msg) => {
         bot.sendMessage(chatId, text, { parse_mode: 'Markdown' });
 
     } catch (err) {
-        console_error({ chatId, error: err.message }, "List failed."); 
+        console_error({ chatId, error: err.message }, "List failed."); // ВИКОРИСТОВУЄМО console_error
         bot.sendMessage(chatId, "Не вдалося отримати список підписок. Спробуйте ще раз.");
     }
 });
@@ -178,7 +180,7 @@ bot.onText(/\/subscribe/, async (msg) => {
     }
     
     userStates[chatId] = 'awaiting_location';
-    console_log({ chatId }, "User started subscription. Awaiting location..."); 
+    console_log({ chatId }, "User started subscription. Awaiting location..."); // ВИКОРИСТОВУЄМО console_log
     bot.sendMessage(chatId, "Чудово! 📍 Будь ласка, надішліть свою геолокацію (через 📎).");
 });
 
@@ -186,13 +188,13 @@ bot.onText(/\/subscribe/, async (msg) => {
 bot.on('location', async (msg) => {
     const chatId = msg.chat.id;
     
-    if (userStates[chatId] === 'awaiting_location') {
+    if (userStates[chatId] && userStates[chatId] === 'awaiting_location') {
         const location = msg.location;
         userStates[chatId] = {
             state: 'awaiting_time',
             location: location
         };
-        console_log({ chatId }, "Got location. Awaiting time..."); 
+        console_log({ chatId }, "Got location. Awaiting time..."); // ВИКОРИСТОВУЄМО console_log
         bot.sendMessage(chatId, "Дякую! ⏰ Тепер введіть час у UTC (Формат: `HH:MM`, наприклад `08:30`)", { parse_mode: 'Markdown' });
     }
 });
@@ -202,7 +204,7 @@ bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
     const text = msg.text;
 
-    // FIX: Запобігає збою (TypeError: Cannot read properties of undefined (reading 'startsWith')) при відправці геолокації
+    // FIX: Запобігає збою при відправці геолокації
     if (!text) {
         return;
     }
@@ -245,11 +247,11 @@ bot.on('message', async (msg) => {
                 { upsert: true, new: true } 
             );
 
-            console_log({ chatId, time: notificationTime }, "Subscription successful!"); 
+            console_log({ chatId, time: notificationTime }, "Subscription successful!"); // ВИКОРИСТОВУЄМО console_log
             bot.sendMessage(chatId, `✅ Готово! Ви підписані на щоденний прогноз погоди о ${notificationTime} UTC.`, { parse_mode: 'Markdown' });
 
         } catch (err) {
-            console_error({ chatId, error: err.message }, "Failed to save subscription."); 
+            console_error({ chatId, error: err.message }, "Failed to save subscription."); // ВИКОРИСТОВУЄМО console_error
             bot.sendMessage(chatId, "Ой, сталася помилка бази даних. Спробуйте /subscribe ще раз.");
         } finally {
             delete userStates[chatId]; 
